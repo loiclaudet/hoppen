@@ -1,10 +1,15 @@
-## Hoppen
+# Hoppen
 
-Hoppen lets you prototype creative effects locally, like CodePen, using the template for the technology of your choice.
+![hippo](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTNha3N2Mmp3NWFyMnByeDVqbm9nZjBqbmhyMWNrN3Zhc21nNG5tZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/9gAqBnmx88xk9kcjed/giphy.gif)
 
-### Features
+## What is Hoppen?
 
-- Pick one of your favorite libraries (GSAP, Shaders skeleton, THREE.js, or all combined!).
+Hoppen lets you prototype creative effects locally, like CodePen.
+You can choose the template with the technology and libraries of your choice.
+
+## Features
+
+- Pick one of your favorite libraries (GSAP, Shaders skeleton, THREE.js, or all combined!)
 - GSAP plugins selection
 - Hot module replacement (HMR)
 - Copy-to-clipboard utility for HTML/CSS/JS, for easy sharing on CodePen.
@@ -63,3 +68,7 @@ You’ll be prompted to select the project. Output goes to your clipboard.
 
 - Scripts use `type="module"` where relevant.
 - GSAP is loaded via CDN for simplicity; you can swap to ESM/CDN imports or local builds if needed.
+
+### Improvements
+
+- use the [CodePen API](https://blog.codepen.io/documentation/api/introduction/) to post to CodePen
