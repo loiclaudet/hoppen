@@ -1,0 +1,10 @@
+body {
+  width: 100%;
+  height: 100dvh;
+  background-color: #000;
+}
+
+#shader-canvas {
+  position: fixed;
+  inset: 0;
+}

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>hop-test</title>
+    <link rel="stylesheet" href="reset.css" />
+    <link rel="stylesheet" href="shaders.css" />
+  </head>
+  <body>
+    <canvas id="shader-canvas"></canvas>
+
+    <script type="x-shader/x-vertex" id="vertex-shader">
+      precision mediump float;
+
+      varying vec2 vUv;
+      attribute vec2 a_position;
+
+      void main() {
+          vUv = 0.5 * (a_position + 1.0);
+          gl_Position = vec4(a_position, 0.0, 1.0);
+      }
+    </script>
+
+    <script type="x-shader/x-fragment" id="fragment-shader">
+      precision mediump float;
+
+      varying vec2 vUv;
+      uniform float u_time;
+      uniform vec2 u_resolution;
+      uniform vec2 u_mouse;
+
+      void main() {
+        gl_FragColor = vec4(vUv.x, vUv.y, 0.0, 1.0);
+      }
+    </script>
+    <script src="shaders.js"></script>
+  </body>
+</html>

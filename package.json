@@ -1,0 +1,25 @@
+{
+  "name": "hoppen",
+  "version": "0.1.0",
+  "description": "Local CodePen-like template runner for awwwards recreations with HMR and clipboard tools",
+  "type": "module",
+  "scripts": {
+    "create": "node cli.js create",
+    "copy:html": "node cli.js copy html",
+    "copy:html:full": "node cli.js copy html --full",
+    "copy:css": "node cli.js copy css",
+    "copy:js": "node cli.js copy js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "clipboardy": "^4.0.0",
+    "fs-extra": "^11.2.0",
+    "prettier-plugin-glsl": "^0.2.0",
+    "prettier": "^3.3.3",
+    "prompts": "^2.4.2",
+    "vite": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
