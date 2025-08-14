@@ -5,7 +5,6 @@ import path from 'path'
 import fse from 'fs-extra'
 import prompts from 'prompts'
 import { createServer } from 'vite'
-import clipboard from 'clipboardy'
 import { load as cheerioLoad } from 'cheerio'
 import prettier from 'prettier'
 
@@ -342,6 +341,27 @@ if (import.meta.hot) {
     $('body').append('\n    <script type="module" src="main.js"></script>')
   }
 
+  // Minimal CodePen Prefill floating button (title only for now)
+  $('body').append(`
+    <form id="codepen-prefill-form" action="https://codepen.io/pen/define" method="POST" target="_blank" style="position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;">
+      <input type="hidden" name="data" id="codepen-data" />
+      <button type="button" id="open-codepen" aria-label="Open in CodePen" title="Open in CodePen" style="all: unset; cursor: pointer; width: 44px; height: 44px; border-radius: 999px; background: rgba(0,0,0,0.7); color: #fff; display: grid; place-items: center; box-shadow: 0 4px 16px rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(6px);">⧉</button>
+    </form>
+    <script>
+      (function(){
+        var btn = document.getElementById('open-codepen');
+        if(!btn) return;
+        btn.addEventListener('click', function(){
+          var input = document.getElementById('codepen-data');
+          var form = document.getElementById('codepen-prefill-form');
+          if(!input || !form) return;
+          input.value = JSON.stringify({ title: document.title || 'Hoppen Pen' });
+          form.submit();
+        });
+      })();
+    </script>
+  `)
+
   // Ensure main.js exists and includes THREE import when selected
   const mainPath = path.join(projectDir, 'main.js')
   if (includeThree) {
@@ -384,96 +404,14 @@ async function startServer(projectDir) {
   console.log('\u001b[32mDev server running:\u001b[0m', info.local[0])
 }
 
-async function copyCommand() {
-  // Select a project
-  await ensureBaseDirs()
-  const entries = (await fse.pathExists(PROJECTS_DIR)) ? await fse.readdir(PROJECTS_DIR) : []
-  if (entries.length === 0) {
-    console.log('No projects found. Run "hoppen create" first.')
-    process.exit(1)
-  }
-  // Sort by most-recent mtime desc, show most recent on top
-  const withStats = await Promise.all(
-    entries.map(async e => {
-      const dir = path.join(PROJECTS_DIR, e)
-      const indexPath = path.join(dir, 'index.html')
-      let mtimeMs
-      if (await fse.pathExists(indexPath)) {
-        const stat = await fse.stat(indexPath)
-        mtimeMs = stat.mtimeMs
-      } else {
-        const stat = await fse.stat(dir)
-        mtimeMs = stat.mtimeMs
-      }
-      return { name: e, mtimeMs }
-    })
-  )
-  withStats.sort((a, b) => b.mtimeMs - a.mtimeMs)
-  const { project } = await prompts({
-    type: 'select',
-    name: 'project',
-    message: 'Choose a project',
-    choices: withStats.map(e => ({ title: e.name, value: e.name })),
-  })
-
-  const projectDir = path.join(PROJECTS_DIR, project)
-  // Parse subcommands/flags: html [--full] | css | js
-  const [, , , kind, flag] = process.argv
-  let fileType = kind
-  const full = flag === '--full'
-
-  const htmlPath = path.join(projectDir, 'index.html')
-  const cssPath = (await fse.pathExists(path.join(projectDir, 'style.css')))
-    ? path.join(projectDir, 'style.css')
-    : path.join(projectDir, 'shaders.css')
-  const jsPath = (await fse.pathExists(path.join(projectDir, 'main.js')))
-    ? path.join(projectDir, 'main.js')
-    : path.join(projectDir, 'shaders.js')
-
-  if (fileType === 'html') {
-    const html = await fse.readFile(htmlPath, 'utf8')
-    const $ = cheerioLoad(html)
-    // Remove module main.js script tag
-    $("script[type='module'][src='main.js']").remove()
-    // If shaders, inline GLSL files as script tags for portability
-    const hasCanvas = $('canvas#shader-canvas').length > 0
-    const vPath = path.join(projectDir, 'vertex.glsl')
-    const fPath = path.join(projectDir, 'fragment.glsl')
-    const hasGlsl = await fse.pathExists(vPath)
-    if (hasCanvas && hasGlsl) {
-      const vSrc = await fse.readFile(vPath, 'utf8')
-      const fSrc = await fse.readFile(fPath, 'utf8')
-      // Ensure shaders.js stays; insert shader script tags before it
-      const shadersScript = $('script[src="shaders.js"]').first()
-      const shaderTags = `\n    <script type="x-shader/x-vertex" id="vertex-shader">\n${vSrc}\n    </script>\n    <script type="x-shader/x-fragment" id="fragment-shader">\n${fSrc}\n    </script>`
-      if (shadersScript.length) {
-        shadersScript.before(shaderTags)
-      } else {
-        $('body').append(shaderTags)
-      }
-    }
-    const output = full ? $.html() : ($('body').html()?.trim() ?? '')
-    await clipboard.write(output)
-    console.log('Copied HTML to clipboard.')
-  } else if (fileType === 'css') {
-    const css = await fse.readFile(cssPath, 'utf8')
-    await clipboard.write(css)
-    console.log('Copied CSS to clipboard.')
-  } else if (fileType === 'js') {
-    const js = await fse.readFile(jsPath, 'utf8')
-    await clipboard.write(js)
-    console.log('Copied JS to clipboard.')
-  }
-}
+// Removed copyCommand in favor of CodePen Prefill workflow (added progressively)
 
 async function main() {
   const [, , cmd] = process.argv
   if (cmd === 'create') {
     await createProject()
-  } else if (cmd === 'copy') {
-    await copyCommand()
   } else {
-    console.log('Usage: hoppen <create|copy>')
+    console.log('Usage: hoppen create')
   }
 }
 

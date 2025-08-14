@@ -12,7 +12,7 @@ You can choose the template with the technology and libraries of your choice.
 - Pick one of your favorite libraries (GSAP, Shaders skeleton, THREE.js, or all combined!)
 - GSAP plugins selection
 - Hot module replacement (HMR)
-- Copy-to-clipboard utility for HTML/CSS/JS, for easy sharing on CodePen.
+- One-click "Open in CodePen" via Prefill API (floating button on each generated project)
 
 ### Requirements
 
@@ -40,20 +40,7 @@ You’ll be prompted for:
 
 When done, a dev server starts and opens your browser. Edit files to see instant updates.
 
-- Copy parts to clipboard for CodePen:
-
-```bash
-# Copy just the body HTML (best for CodePen):
-pnpm copy:html
-# Copy full HTML document:
-pnpm copy:html:full
-# Copy CSS:
-pnpm copy:css
-# Copy JS:
-pnpm copy:js
-```
-
-You’ll be prompted to select the project. Output goes to your clipboard.
+- Open current project in CodePen: click the floating ⧉ button at the bottom-right of the preview. It posts HTML/CSS/JS to CodePen using the Prefill API and opens a new Pen.
 
 ### Project structure
 
@@ -69,6 +56,6 @@ You’ll be prompted to select the project. Output goes to your clipboard.
 - Scripts use `type="module"` where relevant.
 - GSAP is loaded via CDN for simplicity; you can swap to ESM/CDN imports or local builds if needed.
 
-### Improvements
+### Reference
 
-- use the [CodePen API](https://blog.codepen.io/documentation/api/introduction/) to post to CodePen
+- Uses the [CodePen Prefill API](https://blog.codepen.io/documentation/prefill/)
