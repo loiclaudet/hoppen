@@ -220,6 +220,13 @@ async function createProject() {
     await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
     // add project title heading to prevent blank page
     $('body').append(`\n    <h1>${response.projectName}</h1>`)
+    // Ensure internal folder reset.css is available for consistent export
+    const internalDir = path.join(projectDir, '@@internal')
+    await fse.ensureDir(internalDir)
+    const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
+    if (await fse.pathExists(resetCssSrc)) {
+      await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
+    }
   }
 
   // Libraries

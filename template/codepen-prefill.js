@@ -54,24 +54,40 @@ function extractViteCss(txt) {
 }
 
 async function collectCss() {
-  const raw = await fetchText('style.css');
-  const css = extractViteCss(raw);
-  return css ? `/* style.css */\n${css}` : '';
+  const [resetRaw, styleRaw] = await Promise.all([
+    fetchText('@@internal/reset.css').catch(() => ''),
+    fetchText('style.css').catch(() => ''),
+  ]);
+  const reset = extractViteCss(resetRaw || '');
+  const css = extractViteCss(styleRaw || '');
+  const parts = [];
+  if (reset) parts.push(`/* reset.css */\n${reset}`);
+  if (css) parts.push(`/* style.css */\n${css}`);
+  return parts.join('\n\n');
+}
+
+async function detectShaders() {
+  // Consider shaders present if GLSL files exist or a shader canvas is present
+  try {
+    const res = await fetch('vertex.glsl', { method: 'HEAD', cache: 'no-store' });
+    if (res && res.ok) return true;
+  } catch (_) {}
+  return !!document.getElementById('shader-canvas');
 }
 
 async function collectJs() {
-  // Prefer template shaders.js for CodePen (plain runtime), then append project's main.js
-  const [plain, custom] = await Promise.all([
-    fetch('/template/shaders.js')
+  const hasShaders = await detectShaders();
+  const parts = [];
+  if (hasShaders) {
+    const plain = await fetch('/template/shaders.js')
       .then(r => (r.ok ? r.text() : ''))
       .then(t => t.replace(/^[ \t]*\/\/\#.*$/mg, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//mg, ''))
-      .catch(() => ''),
-    fetchText('main.js')
-      .then(t => t.replace(/^[ \t]*\/\/\#.*$/mg, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//mg, ''))
-      .catch(() => ''),
-  ]);
-  const parts = [];
-  if (plain) parts.push(`/* shaders.js */\n${plain}`);
+      .catch(() => '');
+    if (plain) parts.push(`/* shaders.js */\n${plain}`);
+  }
+  const custom = await fetchText('main.js')
+    .then(t => t.replace(/^[ \t]*\/\/\#.*$/mg, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//mg, ''))
+    .catch(() => '');
   if (custom) parts.push(`/* main.js */\n${custom}`);
   return parts.join('\n\n');
 }
