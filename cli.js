@@ -210,12 +210,7 @@ async function createProject() {
       // Ensure an empty main.js for user custom code (exported to CodePen)
       await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
     } else {
-      // fallback minimal shaders container
-      $('body').append('<canvas id="shader-canvas"></canvas>')
-      await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
-      // Fallback: minimal runner expecting inline shader tags
-      const basicRunner = `const canvas = document.getElementById('shader-canvas');\nconst gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');\nif (!gl) { alert('WebGL not supported'); throw new Error('WebGL not supported'); }\nconst vsSrc = document.getElementById('vertex-shader')?.textContent || '';\nconst fsSrc = document.getElementById('fragment-shader')?.textContent || '';\nfunction createShader(gl, source, type){ const s=gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); gl.deleteShader(s); return null;} return s;}\nconst vs = createShader(gl, vsSrc, gl.VERTEX_SHADER);\nconst fs = createShader(gl, fsSrc, gl.FRAGMENT_SHADER);\nconst program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program); if(!gl.getProgramParameter(program, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(program)); throw new Error('Link failed'); } gl.useProgram(program);\nconst timeLocation = gl.getUniformLocation(program, 'u_time'); const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');\nconst vertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]); const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); const loc = gl.getAttribLocation(program, 'a_position'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);\nfunction resize(){ const dpr = Math.min(window.devicePixelRatio||1,2); canvas.width = Math.floor(window.innerWidth*dpr); canvas.height = Math.floor(window.innerHeight*dpr); gl.viewport(0,0,canvas.width,canvas.height); gl.uniform2f(resolutionLocation, canvas.width, canvas.height);} window.addEventListener('resize', resize); resize();\nfunction render(){ const t = performance.now()*0.001; gl.uniform1f(timeLocation, t); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); requestAnimationFrame(render);} render();\n`
-      await outputFormatted(path.join(projectDir, 'main.js'), basicRunner, 'babel')
+      throw new Error(`Missing template shaders.html at ${shadersHtmlPath}`)
     }
   } else {
     // non-shaders: ensure style file exists; defer main.js creation to later logic
@@ -248,8 +243,18 @@ async function createProject() {
     $('body').append('\n    <script type="module" src="main.js"></script>')
   }
 
-  // Include CodePen Prefill helper from repository path (not copied into project)
-  $('body').append('\n    <script type="module" src="/template/codepen-prefill.js"></script>')
+  // Include CodePen Prefill helper inside internal folder to keep project clean
+  if (includeShaders) {
+    const internalDir = path.join(projectDir, '@@internal')
+    await fse.ensureDir(internalDir)
+    const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
+    if (await fse.pathExists(prefillSrc)) {
+      await fse.copy(prefillSrc, path.join(internalDir, 'codepen-prefill.js'))
+    }
+    $('body').append('\n    <script type="module" src="@@internal/codepen-prefill.js"></script>')
+  } else {
+    $('body').append('\n    <script type="module" src="/template/codepen-prefill.js"></script>')
+  }
 
   // Ensure main.js exists and includes THREE import when selected
   const mainPath = path.join(projectDir, 'main.js')

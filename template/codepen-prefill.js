@@ -88,6 +88,8 @@ async function onClick() {
         const rm = (sel) => doc.querySelectorAll(sel).forEach((el) => el.remove());
         rm('#codepen-prefill-form');
         rm('script[type="module"][src="/template/codepen-prefill.js"]');
+        rm('script[type="module"][src="@@internal/codepen-prefill.js"]');
+        rm('script[type="module"][src="@@internal/shaders-hmr.js"]');
         rm('script[type="module"][src="main.js"]');
         // Build shader tags from GLSL files
         const [v, f] = await Promise.all([
@@ -103,6 +105,8 @@ async function onClick() {
         const rm = (sel) => clone.querySelectorAll(sel).forEach((el) => el.remove());
         rm('#codepen-prefill-form');
         rm('script[type="module"][src="/template/codepen-prefill.js"]');
+        rm('script[type="module"][src="@@internal/codepen-prefill.js"]');
+        rm('script[type="module"][src="@@internal/shaders-hmr.js"]');
         rm('script[type="module"][src="main.js"]');
         // Build shader tags from GLSL files
         const [v, f] = await Promise.all([
