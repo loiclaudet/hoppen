@@ -62,8 +62,13 @@ async function collectCss() {
 async function collectJs() {
   // Prefer template shaders.js for CodePen (plain runtime), then append project's main.js
   const [plain, custom] = await Promise.all([
-    fetch('/template/shaders.js').then(r => (r.ok ? r.text() : '')).catch(() => ''),
-    fetchText('main.js').then((t) => t.replace(/^[ \t]*\/\/\#.*$/mg, '')).catch(() => ''),
+    fetch('/template/shaders.js')
+      .then(r => (r.ok ? r.text() : ''))
+      .then(t => t.replace(/^[ \t]*\/\/\#.*$/mg, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//mg, ''))
+      .catch(() => ''),
+    fetchText('main.js')
+      .then(t => t.replace(/^[ \t]*\/\/\#.*$/mg, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//mg, ''))
+      .catch(() => ''),
   ]);
   const parts = [];
   if (plain) parts.push(`/* shaders.js */\n${plain}`);

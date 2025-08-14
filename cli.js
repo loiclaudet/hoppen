@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from 'url'
 import path from 'path'
-// import fs from 'fs'
 import fse from 'fs-extra'
 import prompts from 'prompts'
 import { createServer } from 'vite'
@@ -103,7 +102,7 @@ function buildBaseHtml({ title = 'Hoppen', useStyleHref }) {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${title}</title>
-    <link rel="stylesheet" href="../../reset.css" />
+    <link rel="stylesheet" href="@@internal/reset.css" />
     ${useStyleHref ? `<link rel=\"stylesheet\" href=\"${useStyleHref}\" />` : ''}
   </head>
   <body>
@@ -200,12 +199,16 @@ async function createProject() {
 
       // Do not inline shader script tags in HTML; keep GLSL only in files
 
-      // Copy HMR runner into hidden internal folder for correct import resolution
+      // Copy HMR runner and reset.css into hidden internal folder for correct import resolution
       const internalDir = path.join(projectDir, '@@internal')
       await fse.ensureDir(internalDir)
       const shadersHmrSrc = path.join(templateDir, 'shaders-hmr.js')
       if (await fse.pathExists(shadersHmrSrc)) {
         await fse.copy(shadersHmrSrc, path.join(internalDir, 'shaders-hmr.js'))
+      }
+      const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
+      if (await fse.pathExists(resetCssSrc)) {
+        await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
       }
       // Ensure an empty main.js for user custom code (exported to CodePen)
       await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
