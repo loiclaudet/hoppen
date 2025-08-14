@@ -218,7 +218,8 @@ async function createProject() {
   } else {
     // non-shaders: ensure style file exists; defer main.js creation to later logic
     await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
-    $('body').append('')
+    // add project title heading to prevent blank page
+    $('body').append(`\n    <h1>${response.projectName}</h1>`)
   }
 
   // Libraries
@@ -303,12 +304,48 @@ async function startServer(projectDir) {
 
 // Removed copyCommand in favor of CodePen Prefill workflow (added progressively)
 
+async function startExistingProject() {
+  await ensureBaseDirs()
+  const entries = (await fse.pathExists(PROJECTS_DIR)) ? await fse.readdir(PROJECTS_DIR) : []
+  if (entries.length === 0) {
+    console.log('No projects found. Run "hoppen create" first.')
+    process.exit(1)
+  }
+  const withStats = await Promise.all(
+    entries.map(async name => {
+      const dir = path.join(PROJECTS_DIR, name)
+      const indexPath = path.join(dir, 'index.html')
+      let mtimeMs
+      if (await fse.pathExists(indexPath)) {
+        const stat = await fse.stat(indexPath)
+        mtimeMs = stat.mtimeMs
+      } else {
+        const stat = await fse.stat(dir)
+        mtimeMs = stat.mtimeMs
+      }
+      return { name, dir, mtimeMs }
+    })
+  )
+  withStats.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  const { project } = await prompts({
+    type: 'select',
+    name: 'project',
+    message: 'Choose a project to start',
+    initial: 0,
+    choices: withStats.map(e => ({ title: e.name, value: e.name })),
+  })
+  const chosen = withStats.find(e => e.name === project) || withStats[0]
+  await startServer(chosen.dir)
+}
+
 async function main() {
   const [, , cmd] = process.argv
   if (cmd === 'create') {
     await createProject()
+  } else if (cmd === 'start') {
+    await startExistingProject()
   } else {
-    console.log('Usage: hoppen create')
+    console.log('Usage: hoppen <create|start>')
   }
 }
 
