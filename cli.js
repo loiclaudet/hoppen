@@ -341,26 +341,12 @@ if (import.meta.hot) {
     $('body').append('\n    <script type="module" src="main.js"></script>')
   }
 
-  // Minimal CodePen Prefill floating button (title only for now)
-  $('body').append(`
-    <form id="codepen-prefill-form" action="https://codepen.io/pen/define" method="POST" target="_blank" style="position: fixed; right: 16px; bottom: 16px; z-index: 2147483647;">
-      <input type="hidden" name="data" id="codepen-data" />
-      <button type="button" id="open-codepen" aria-label="Open in CodePen" title="Open in CodePen" style="all: unset; cursor: pointer; width: 44px; height: 44px; border-radius: 999px; background: rgba(0,0,0,0.7); color: #fff; display: grid; place-items: center; box-shadow: 0 4px 16px rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.15); backdrop-filter: blur(6px);">⧉</button>
-    </form>
-    <script>
-      (function(){
-        var btn = document.getElementById('open-codepen');
-        if(!btn) return;
-        btn.addEventListener('click', function(){
-          var input = document.getElementById('codepen-data');
-          var form = document.getElementById('codepen-prefill-form');
-          if(!input || !form) return;
-          input.value = JSON.stringify({ title: document.title || 'Hoppen Pen' });
-          form.submit();
-        });
-      })();
-    </script>
-  `)
+  // Include CodePen Prefill helper module file (avoids inline escaping issues)
+  const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
+  if (await fse.pathExists(prefillSrc)) {
+    await fse.copy(prefillSrc, path.join(projectDir, 'codepen-prefill.js'))
+    $('body').append('\n    <script type="module" src="codepen-prefill.js"></script>')
+  }
 
   // Ensure main.js exists and includes THREE import when selected
   const mainPath = path.join(projectDir, 'main.js')
