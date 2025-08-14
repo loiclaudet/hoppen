@@ -60,9 +60,15 @@ async function collectCss() {
 }
 
 async function collectJs() {
-  // JS handling will be refined later per iteration
-  const js = await fetchText('main.js');
-  return js ? `/* main.js */\n${js}` : '';
+  // Prefer template shaders.js for CodePen (plain runtime), then append project's main.js
+  const [plain, custom] = await Promise.all([
+    fetch('/template/shaders.js').then(r => (r.ok ? r.text() : '')).catch(() => ''),
+    fetchText('main.js').then((t) => t.replace(/^[ \t]*\/\/\#.*$/mg, '')).catch(() => ''),
+  ]);
+  const parts = [];
+  if (plain) parts.push(`/* shaders.js */\n${plain}`);
+  if (custom) parts.push(`/* main.js */\n${custom}`);
+  return parts.join('\n\n');
 }
 
 async function onClick() {
@@ -70,11 +76,51 @@ async function onClick() {
   const input = document.getElementById('codepen-data');
   const form = document.getElementById('codepen-prefill-form');
   if (!input || !form) return;
-  const [css, js] = await Promise.all([collectCss(), collectJs()]);
+  const [css, js, html] = await Promise.all([
+    collectCss(),
+    collectJs(),
+    (async () => {
+      // Prefer raw HTML from server (extension-free), then parse and prune local entries
+      try {
+        const res = await fetch(location.pathname, { cache: 'no-store' });
+        const txt = await res.text();
+        const doc = new DOMParser().parseFromString(txt, 'text/html');
+        const rm = (sel) => doc.querySelectorAll(sel).forEach((el) => el.remove());
+        rm('#codepen-prefill-form');
+        rm('script[type="module"][src="/template/codepen-prefill.js"]');
+        rm('script[type="module"][src="main.js"]');
+        // Build shader tags from GLSL files
+        const [v, f] = await Promise.all([
+          fetchText('vertex.glsl'),
+          fetchText('fragment.glsl'),
+        ]);
+        const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`;
+        if (doc.body) doc.body.insertAdjacentHTML('beforeend', shaderTags);
+        return (doc.body && doc.body.innerHTML ? doc.body.innerHTML.trim() : '');
+      } catch (_) {
+        // Fallback to current DOM (may include extension nodes)
+        const clone = document.body.cloneNode(true);
+        const rm = (sel) => clone.querySelectorAll(sel).forEach((el) => el.remove());
+        rm('#codepen-prefill-form');
+        rm('script[type="module"][src="/template/codepen-prefill.js"]');
+        rm('script[type="module"][src="main.js"]');
+        // Build shader tags from GLSL files
+        const [v, f] = await Promise.all([
+          fetchText('vertex.glsl'),
+          fetchText('fragment.glsl'),
+        ]);
+        const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`;
+        clone.insertAdjacentHTML('beforeend', shaderTags);
+        return clone.innerHTML.trim();
+      }
+    })(),
+  ]);
   input.value = JSON.stringify({
     title: document.title || 'Hoppen Pen',
+    html,
     css,
-    js,
+    // Prefer plain runtime when shaders are present to avoid Vite imports in CodePen
+    js: js || (await fetchText('shaders.js').then((t) => (t ? `/* shaders.js */\n${t}` : ''))),
     editors: '111',
   });
   form.submit();

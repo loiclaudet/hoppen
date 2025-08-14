@@ -162,7 +162,7 @@ async function createProject() {
   const includeThree = features.has('three')
 
   // Prepare HTML scaffold
-  const useStyleHref = includeShaders ? 'shaders.css' : 'style.css'
+  const useStyleHref = 'style.css'
   let html = buildBaseHtml({ title: 'Hoppen', useStyleHref })
   let $ = cheerioLoad(html)
 
@@ -185,129 +185,37 @@ async function createProject() {
       const templateDir = path.join(__dirname, 'template')
       if (await fse.pathExists(path.join(templateDir, 'shaders.css'))) {
         const css = await fse.readFile(path.join(templateDir, 'shaders.css'), 'utf8')
-        await outputFormatted(path.join(projectDir, 'shaders.css'), css, 'css')
+        await outputFormatted(path.join(projectDir, 'style.css'), css, 'css')
       } else {
-        await writeIfMissingFormatted(path.join(projectDir, 'shaders.css'), '', 'css')
+        await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
       }
-      // Create GLSL files from template inline scripts if available
-      const vSrc = $$('script[type="x-shader/x-vertex"]').text().trim()
-      const fSrc = $$('script[type="x-shader/x-fragment"]').text().trim()
+      // Create GLSL files from template inline scripts for IDE features (and HMR via Vite ?raw)
+      const vSrc = $$('script[type="x-shader/x-vertex"]#vertex-shader').text().trim()
+      const fSrc = $$('script[type="x-shader/x-fragment"]#fragment-shader').text().trim()
       const vOut = await formatContent(vSrc || 'precision mediump float;\n', 'glsl')
       const fOut = await formatContent(fSrc || 'precision mediump float;\n', 'glsl')
       await fse.outputFile(path.join(projectDir, 'vertex.glsl'), vOut)
       await fse.outputFile(path.join(projectDir, 'fragment.glsl'), fOut)
-      // Generate shaders.js as ES module importing raw GLSL with HMR support
-      const generatedShaderJs = `const canvas = document.getElementById('shader-canvas');
-const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-if (!gl) {
-  alert('WebGL is not supported by your browser.');
-  throw new Error('WebGL not supported');
-}
+      // No JS wrappers; Vite will serve ?raw for HMR via imports inside the shared runner
 
-let rafId;
-let program;
-let timeLocation;
-let resolutionLocation;
+      // Do not inline shader script tags in HTML; keep GLSL only in files
 
-async function loadShaders() {
-  const [vertexShaderSource, fragmentShaderSource] = await Promise.all([
-    import('./vertex.glsl?raw').then((m) => m.default),
-    import('./fragment.glsl?raw').then((m) => m.default),
-  ]);
-  return { vertexShaderSource, fragmentShaderSource };
-}
-
-function createShader(gl, source, type) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-  return shader;
-}
-
-async function init() {
-  const { vertexShaderSource, fragmentShaderSource } = await loadShaders();
-
-  const vertexShader = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER);
-  const fragmentShader = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER);
-  program = gl.createProgram();
-  gl.attachShader(program, vertexShader);
-  gl.attachShader(program, fragmentShader);
-  gl.linkProgram(program);
-  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-    console.error('Program linking error:', gl.getProgramInfoLog(program));
-    throw new Error('Program linking failed');
-  }
-  gl.useProgram(program);
-
-  timeLocation = gl.getUniformLocation(program, 'u_time');
-  resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
-
-  const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
-  const vertexBuffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
-
-  const positionLocation = gl.getAttribLocation(program, 'a_position');
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
-
-  function resizeCanvas() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.floor(window.innerWidth * dpr);
-    canvas.height = Math.floor(window.innerHeight * dpr);
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-  }
-
-  window.addEventListener('resize', resizeCanvas);
-  resizeCanvas();
-
-  function render() {
-    const time = performance.now() * 0.001;
-    gl.uniform1f(timeLocation, time);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-    rafId = requestAnimationFrame(render);
-  }
-  render();
-  return () => {
-    if (rafId) cancelAnimationFrame(rafId);
-  };
-}
-
-let disposePromise = init();
-
-if (import.meta.hot) {
-  import.meta.hot.accept(async () => {
-    // Wait previous render loop to be cancelled before reinit
-    const dispose = await disposePromise;
-    dispose && dispose();
-    disposePromise = init();
-  });
-}
-`
-      await outputFormatted(path.join(projectDir, 'shaders.js'), generatedShaderJs, 'babel')
+      // Copy HMR runner into hidden internal folder for correct import resolution
+      const internalDir = path.join(projectDir, '@@internal')
+      await fse.ensureDir(internalDir)
+      const shadersHmrSrc = path.join(templateDir, 'shaders-hmr.js')
+      if (await fse.pathExists(shadersHmrSrc)) {
+        await fse.copy(shadersHmrSrc, path.join(internalDir, 'shaders-hmr.js'))
+      }
+      // Ensure an empty main.js for user custom code (exported to CodePen)
+      await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
     } else {
       // fallback minimal shaders container
       $('body').append('<canvas id="shader-canvas"></canvas>')
-      await writeIfMissingFormatted(path.join(projectDir, 'shaders.css'), '', 'css')
-      // Create empty GLSL files and a basic loader
-      await outputFormatted(
-        path.join(projectDir, 'vertex.glsl'),
-        'precision mediump float;\n',
-        'glsl'
-      )
-      await outputFormatted(
-        path.join(projectDir, 'fragment.glsl'),
-        'precision mediump float;\nvoid main(){ gl_FragColor = vec4(1.0); }\n',
-        'glsl'
-      )
-      const basicLoader = `// Add your shader loader or logic here\n`
-      await outputFormatted(path.join(projectDir, 'shaders.js'), basicLoader, 'babel')
+      await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
+      // Fallback: minimal runner expecting inline shader tags
+      const basicRunner = `const canvas = document.getElementById('shader-canvas');\nconst gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');\nif (!gl) { alert('WebGL not supported'); throw new Error('WebGL not supported'); }\nconst vsSrc = document.getElementById('vertex-shader')?.textContent || '';\nconst fsSrc = document.getElementById('fragment-shader')?.textContent || '';\nfunction createShader(gl, source, type){ const s=gl.createShader(type); gl.shaderSource(s, source); gl.compileShader(s); if(!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); gl.deleteShader(s); return null;} return s;}\nconst vs = createShader(gl, vsSrc, gl.VERTEX_SHADER);\nconst fs = createShader(gl, fsSrc, gl.FRAGMENT_SHADER);\nconst program = gl.createProgram(); gl.attachShader(program, vs); gl.attachShader(program, fs); gl.linkProgram(program); if(!gl.getProgramParameter(program, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(program)); throw new Error('Link failed'); } gl.useProgram(program);\nconst timeLocation = gl.getUniformLocation(program, 'u_time'); const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');\nconst vertices = new Float32Array([-1,-1, 1,-1, -1,1, 1,1]); const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf); gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW); const loc = gl.getAttribLocation(program, 'a_position'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);\nfunction resize(){ const dpr = Math.min(window.devicePixelRatio||1,2); canvas.width = Math.floor(window.innerWidth*dpr); canvas.height = Math.floor(window.innerHeight*dpr); gl.viewport(0,0,canvas.width,canvas.height); gl.uniform2f(resolutionLocation, canvas.width, canvas.height);} window.addEventListener('resize', resize); resize();\nfunction render(){ const t = performance.now()*0.001; gl.uniform1f(timeLocation, t); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4); requestAnimationFrame(render);} render();\n`
+      await outputFormatted(path.join(projectDir, 'main.js'), basicRunner, 'babel')
     }
   } else {
     // non-shaders: ensure style file exists; defer main.js creation to later logic
@@ -332,21 +240,16 @@ if (import.meta.hot) {
     $('body').append(libsHtml)
   }
 
-  // App scripts ordering
+  // App script entries
   if (includeShaders) {
-    $('body').append('\n    <script type="module" src="shaders.js"></script>')
-  }
-  // Include module entry if not shaders-only OR when THREE is selected
-  if (!includeShaders || includeThree) {
+    $('body').append('\n    <script type="module" src="@@internal/shaders-hmr.js"></script>')
+    $('body').append('\n    <script type="module" src="main.js"></script>')
+  } else {
     $('body').append('\n    <script type="module" src="main.js"></script>')
   }
 
-  // Include CodePen Prefill helper module file (avoids inline escaping issues)
-  const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
-  if (await fse.pathExists(prefillSrc)) {
-    await fse.copy(prefillSrc, path.join(projectDir, 'codepen-prefill.js'))
-    $('body').append('\n    <script type="module" src="codepen-prefill.js"></script>')
-  }
+  // Include CodePen Prefill helper from repository path (not copied into project)
+  $('body').append('\n    <script type="module" src="/template/codepen-prefill.js"></script>')
 
   // Ensure main.js exists and includes THREE import when selected
   const mainPath = path.join(projectDir, 'main.js')
