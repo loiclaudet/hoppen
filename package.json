@@ -4,7 +4,8 @@
   "description": "Local CodePen-like template runner for awwwards recreations with HMR and CodePen Prefill",
   "type": "module",
   "scripts": {
-    "create": "node cli.js create"
+    "create": "node cli.js create",
+    "start": "node cli.js start"
   },
   "dependencies": {
     "cheerio": "^1.0.0",
