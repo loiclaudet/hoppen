@@ -129,6 +129,8 @@ async function createProject() {
         { title: 'GSAP', value: 'gsap' },
         { title: 'Shaders skeleton', value: 'shaders' },
         { title: 'THREE.js', value: 'three' },
+        { title: 'Lenis', value: 'lenis' },
+        { title: 'r3f', value: 'r3f' },
       ],
     },
     {
@@ -159,6 +161,8 @@ async function createProject() {
   const includeGSAP = features.has('gsap')
   const includeShaders = features.has('shaders')
   const includeThree = features.has('three')
+  const includeLenis = features.has('lenis')
+  const includeR3F = features.has('r3f')
 
   // Prepare HTML scaffold
   const useStyleHref = 'style.css'
@@ -239,6 +243,23 @@ async function createProject() {
     })
   }
   // THREE is handled via ESM imports in main.js
+  if (includeLenis) {
+    libs.push(
+      `<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@latest/dist/lenis.min.js"></script>`
+    )
+  }
+  if (includeR3F) {
+    // React + ReactDOM UMD globals
+    libs.push(
+      `<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>`
+    )
+    libs.push(
+      `<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>`
+    )
+    // three UMD global (THREE)
+    libs.push(`<script src="https://unpkg.com/three@latest/build/three.min.js"></script>`)
+    // Optionally include drei helpers (UMD not guaranteed). Skipping to avoid runtime issues.
+  }
 
   // Insert libraries before app scripts
   const libsHtml = `\n    ${libs.join('\n    ')}`
