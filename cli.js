@@ -275,8 +275,8 @@ async function createProject() {
     $('body').append('\n    <script type="module" src="main.js"></script>')
   }
 
-  // Include CodePen Prefill helper inside internal folder to keep project clean
-  if (includeShaders) {
+  // Include CodePen Prefill helper inside internal folder.
+  {
     const internalDir = path.join(projectDir, '@@internal')
     await fse.ensureDir(internalDir)
     const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
@@ -284,8 +284,6 @@ async function createProject() {
       await fse.copy(prefillSrc, path.join(internalDir, 'codepen-prefill.js'))
     }
     $('body').append('\n    <script type="module" src="@@internal/codepen-prefill.js"></script>')
-  } else {
-    $('body').append('\n    <script type="module" src="/template/codepen-prefill.js"></script>')
   }
 
   // Ensure main.js exists and includes THREE import when selected
