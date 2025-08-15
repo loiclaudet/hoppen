@@ -10,7 +10,7 @@ import prettier from 'prettier'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const PROJECTS_DIR = path.join(__dirname, 'projects')
+const WORKSPACE_DIR = process.cwd()
 
 const GSAP_CDN = 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/gsap.min.js'
 const GSAP_PLUGINS = [
@@ -37,7 +37,7 @@ const GSAP_PLUGINS = [
 ]
 
 async function ensureBaseDirs() {
-  await fse.ensureDir(PROJECTS_DIR)
+  await fse.ensureDir(WORKSPACE_DIR)
 }
 
 function toKebabCase(str) {
@@ -45,12 +45,6 @@ function toKebabCase(str) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '')
-}
-
-async function writeFileIfMissing(filePath, contents) {
-  if (!(await fse.pathExists(filePath))) {
-    await fse.outputFile(filePath, contents)
-  }
 }
 
 const PRETTIER_OPTS = {
@@ -143,7 +137,7 @@ async function createProject() {
   ])
 
   const safeName = toKebabCase(response.projectName)
-  const projectDir = path.join(PROJECTS_DIR, safeName)
+  const projectDir = path.join(WORKSPACE_DIR, safeName)
   if (await fse.pathExists(projectDir)) {
     const overwrite = await prompts({
       type: 'confirm',
@@ -315,11 +309,11 @@ async function createProject() {
 
 async function startServer(projectDir) {
   const server = await createServer({
-    root: __dirname,
+    root: WORKSPACE_DIR,
     server: {
       port: 2187,
-      open: `/projects/${path.basename(projectDir)}/index.html`,
-      fs: { allow: [__dirname] },
+      open: `/${path.basename(projectDir)}/index.html`,
+      fs: { allow: [__dirname, WORKSPACE_DIR] },
     },
     appType: 'mpa',
   })
@@ -330,29 +324,58 @@ async function startServer(projectDir) {
 
 // Removed copyCommand in favor of CodePen Prefill workflow (added progressively)
 
-async function startExistingProject() {
+async function startExistingProject(targetName) {
   await ensureBaseDirs()
-  const entries = (await fse.pathExists(PROJECTS_DIR)) ? await fse.readdir(PROJECTS_DIR) : []
+  const entries = await fse.readdir(WORKSPACE_DIR)
   if (entries.length === 0) {
     console.log('No projects found. Run "hoppen create" first.')
     process.exit(1)
   }
-  const withStats = await Promise.all(
+  const withStatsFull = await Promise.all(
     entries.map(async name => {
-      const dir = path.join(PROJECTS_DIR, name)
+      const dir = path.join(WORKSPACE_DIR, name)
       const indexPath = path.join(dir, 'index.html')
+      const internalPath = path.join(dir, '@@internal')
       let mtimeMs
-      if (await fse.pathExists(indexPath)) {
-        const stat = await fse.stat(indexPath)
-        mtimeMs = stat.mtimeMs
+      let birthtimeMs
+      if ((await fse.pathExists(dir)) && (await fse.stat(dir)).isDirectory()) {
+        const hasIndex = await fse.pathExists(indexPath)
+        const hasInternal = await fse.pathExists(internalPath)
+        if (!hasInternal || !hasIndex) {
+          return null
+        }
+        if (hasIndex) {
+          const stat = await fse.stat(indexPath)
+          mtimeMs = stat.mtimeMs
+          birthtimeMs = stat.birthtimeMs
+        } else {
+          const stat = await fse.stat(dir)
+          mtimeMs = stat.mtimeMs
+          birthtimeMs = stat.birthtimeMs
+        }
+        return { name, dir, mtimeMs, birthtimeMs, hasIndex }
       } else {
-        const stat = await fse.stat(dir)
-        mtimeMs = stat.mtimeMs
+        return null
       }
-      return { name, dir, mtimeMs }
     })
   )
-  withStats.sort((a, b) => b.mtimeMs - a.mtimeMs)
+  const withStats = withStatsFull.filter(Boolean)
+
+  // If a targetName was provided, try to start it directly
+  if (targetName) {
+    const match = withStats.find(e => e.name === targetName)
+    if (!match) {
+      console.error(`Project '${targetName}' not found in ${WORKSPACE_DIR}.`)
+      console.log('Available projects:', withStats.map(e => e.name).join(', '))
+      process.exit(1)
+    }
+    await startServer(match.dir)
+    return
+  }
+
+  // Sort by creation date (oldest first), then reverse to show latest first
+  withStats.sort((a, b) => a.birthtimeMs - b.birthtimeMs)
+  withStats.reverse()
   const { project } = await prompts({
     type: 'select',
     name: 'project',
@@ -366,12 +389,14 @@ async function startExistingProject() {
 
 async function main() {
   const [, , cmd] = process.argv
-  if (cmd === 'create') {
+  if (!cmd || cmd === 'create') {
+    // Default to create when no subcommand is provided
     await createProject()
   } else if (cmd === 'start') {
-    await startExistingProject()
+    const targetName = process.argv[3]
+    await startExistingProject(targetName)
   } else {
-    console.log('Usage: hoppen <create|start>')
+    console.log('Usage: hoppen [create] | hoppen start [projectName]')
   }
 }
 

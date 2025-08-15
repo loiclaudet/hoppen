@@ -1,12 +1,12 @@
 {
   "name": "hoppen",
   "version": "0.1.0",
-  "description": "Local CodePen-like template runner for awwwards recreations with HMR and CodePen Prefill",
+  "description": "Start your creative project with your favorite libraries, in seconds. Export instantly to CodePen.",
   "type": "module",
-  "scripts": {
-    "create": "node cli.js create",
-    "start": "node cli.js start"
+  "bin": {
+    "hoppen": "hoppen.js"
   },
+  "scripts": {},
   "dependencies": {
     "cheerio": "^1.0.0",
     "fs-extra": "^11.2.0",
@@ -17,5 +17,13 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "homepage": "https://github.com/loiclaudet/hoppen#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/loiclaudet/hoppen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/loiclaudet/hoppen/issues"
   }
 }
