@@ -4,15 +4,33 @@ Start your creative project with your favorite libraries, in seconds.
 
 Export instantly to CodePen.
 
-![hippo](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTNha3N2Mmp3NWFyMnByeDVqbm9nZjBqbmhyMWNrN3Zhc21nNG5tZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/9gAqBnmx88xk9kcjed/giphy.gif)
+![hippo](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExd3Y3ZTY1YmptbnAyajdjMXo5cGVnbTg0Y2trbnpzazhoOHZ3OTJ2eCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/4ii7IOWA9OcjH3XMtd/giphy.gif)
+
+## Usage
+
+### Create a project
+
+```terminal
+npx hoppen
+```
+
+### Start an existing project
+
+from the root of your project, run:
+
+```terminal
+npx hoppen start [project-name]
+```
 
 ## Why Hoppen?
 
 Codepen is great for prototyping, but iterating on a project with AI is a pain.
 
-Hoppen allows you to iterate on a project from your IDE that includes your favorite AI tools.
+Hoppen allows you to iterate on a project while benefiting from the power of your favorite IDE and AI tools.
 
-shaders creation are done directly in .glsl files, and the changes are instantly reflected in the preview.
+Export your project to CodePen whenever you want.
+
+That's useful for educational purposes, for example to show a project at different stages of development. That's an handy way to version your project.
 
 ## Features
 
@@ -20,39 +38,18 @@ shaders creation are done directly in .glsl files, and the changes are instantly
 - One-click export to CodePen
 - Hot module replacement (HMR)
 
+### Internal files
+
+Hoppen creates a internal folder `@@internal` that contains the CodePen Prefill helper, the reset.css file, and scripts for HMR when shaders are enabled.
+
 ### Requirements
 
-- Node.js 20+
+- Node.js 18+
 
-### Install
+### Contributing
 
-```bash
-pnpm install
-```
+if your favorite library is not supported, please open an issue or a pull request.
 
-### Usage
+### License
 
-- Create a project:
-
-```bash
-pnpm create
-```
-
-You’ll be prompted for:
-
-1. Project name (created under `projects/<name>`)
-2. Options: GSAP, Shaders skeleton, THREE.js (can combine)
-3. If GSAP, select optional plugins: ScrollTrigger, ScrollSmoother, Draggable, SplitText
-
-When done, a dev server starts and opens your browser. Edit files to see instant updates.
-
-- Open current project in CodePen: click the floating ⧉ button at the bottom-right of the preview. It posts HTML/CSS/JS to CodePen using the Prefill API and opens a new Pen.
-
-### Project structure
-
-- `projects/<your-project>/` – your working files
-- `reset.css` – [Josh Comeau’s CSS reset](https://www.joshwcomeau.com/css/custom-css-reset/)
-
-### Reference
-
-- Uses the [CodePen Prefill API](https://blog.codepen.io/documentation/prefill/)
+MIT
