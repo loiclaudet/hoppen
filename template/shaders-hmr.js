@@ -83,7 +83,9 @@ async function init() {
     rafId = requestAnimationFrame(render)
   }
   render()
-  return () => { if (rafId) cancelAnimationFrame(rafId) }
+  return () => {
+    if (rafId) cancelAnimationFrame(rafId)
+  }
 }
 
 let disposePromise = init()
