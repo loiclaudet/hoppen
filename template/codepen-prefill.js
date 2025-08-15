@@ -79,7 +79,7 @@ async function collectJs() {
   const hasShaders = await detectShaders()
   const parts = []
   if (hasShaders) {
-    const plain = await fetch('/template/shaders.js')
+    const plain = await fetch('@@internal/shaders.js')
       .then(r => (r.ok ? r.text() : ''))
       .then(t =>
         t

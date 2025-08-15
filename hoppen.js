@@ -208,6 +208,11 @@ async function createProject() {
       if (await fse.pathExists(resetCssSrc)) {
         await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
       }
+      // Also include plain runtime for CodePen export
+      const shadersPlainSrc = path.join(templateDir, 'shaders.js')
+      if (await fse.pathExists(shadersPlainSrc)) {
+        await fse.copy(shadersPlainSrc, path.join(internalDir, 'shaders.js'))
+      }
       // Ensure an empty main.js for user custom code (exported to CodePen)
       await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
     } else {
