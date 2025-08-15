@@ -1,18 +1,24 @@
-# Hoppen
+# ⧉ Hoppen
+
+Start your creative project with your favorite libraries, in seconds.
+
+Export instantly to CodePen.
 
 ![hippo](https://media2.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTNha3N2Mmp3NWFyMnByeDVqbm9nZjBqbmhyMWNrN3Zhc21nNG5tZiZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/9gAqBnmx88xk9kcjed/giphy.gif)
 
-## What is Hoppen?
+## Why Hoppen?
 
-Hoppen lets you prototype creative effects locally, like CodePen.
-You can choose the template with the technology and libraries of your choice.
+Codepen is great for prototyping, but iterating on a project with AI is a pain.
+
+Hoppen allows you to iterate on a project from your IDE that includes your favorite AI tools.
+
+shaders creation are done directly in .glsl files, and the changes are instantly reflected in the preview.
 
 ## Features
 
-- Pick one of your favorite libraries (GSAP, Shaders skeleton, THREE.js, or all combined!)
-- GSAP plugins selection
+- Scaffold a project with your favorite libraries and frameworks (GSAP, THREE.js, r3f, shaders, Lenis)
+- One-click export to CodePen
 - Hot module replacement (HMR)
-- One-click "Open in CodePen" via Prefill API (floating button on each generated project)
 
 ### Requirements
 
@@ -45,16 +51,7 @@ When done, a dev server starts and opens your browser. Edit files to see instant
 ### Project structure
 
 - `projects/<your-project>/` – your working files
-- `reset.css` – Josh Comeau’s CSS reset (kept at repo root and referenced as `../../reset.css` in projects)
-
-### Extending
-
-- Add GSAP plugins: extend the `GSAP_PLUGINS` array in `cli.js` with `{ name, id, src }`. They’ll show up in the multiselect.
-
-### Notes
-
-- Scripts use `type="module"` where relevant.
-- GSAP is loaded via CDN for simplicity; you can swap to ESM/CDN imports or local builds if needed.
+- `reset.css` – [Josh Comeau’s CSS reset](https://www.joshwcomeau.com/css/custom-css-reset/)
 
 ### Reference
 
