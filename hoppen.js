@@ -320,7 +320,6 @@ async function startServer(projectDir) {
       open: `/${path.basename(projectDir)}/index.html`,
       fs: { allow: [__dirname, WORKSPACE_DIR] },
     },
-    appType: 'mpa',
   })
   await server.listen()
   const info = server.resolvedUrls
