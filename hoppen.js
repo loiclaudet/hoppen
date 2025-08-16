@@ -149,8 +149,6 @@ async function createProject() {
     await fse.remove(projectDir)
   }
 
-  // Use root reset.css via ../../reset.css reference; no copy/symlink
-
   const features = new Set(response.features || [])
   const includeGSAP = features.has('gsap')
   const includeShaders = features.has('shaders')
@@ -221,8 +219,6 @@ async function createProject() {
   } else {
     // non-shaders: ensure style file exists; defer main.js creation to later logic
     await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
-    // add project title heading to prevent blank page
-    $('body').append(`\n    <h1>${response.projectName}</h1>`)
     // Ensure internal folder reset.css is available for consistent export
     const internalDir = path.join(projectDir, '@@internal')
     await fse.ensureDir(internalDir)
@@ -230,6 +226,11 @@ async function createProject() {
     if (await fse.pathExists(resetCssSrc)) {
       await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
     }
+  }
+
+  if (!includeThree && !includeShaders) {
+    // add project title heading to prevent blank page
+    $('body').append(`\n    <h1>${response.projectName}</h1>`)
   }
 
   // Libraries
@@ -288,17 +289,12 @@ async function createProject() {
   // Ensure main.js exists and includes THREE import when selected
   const mainPath = path.join(projectDir, 'main.js')
   if (includeThree) {
-    let current = ''
-    if (await fse.pathExists(mainPath)) {
-      current = await fse.readFile(mainPath, 'utf8')
+    const threeTemplatePath = path.join(__dirname, 'template', 'threejs.js')
+    if (!(await fse.pathExists(threeTemplatePath))) {
+      throw new Error(`Missing template threejs.js at ${threeTemplatePath}`)
     }
-    if (!/three\.module\.js/.test(current)) {
-      const seed =
-        `import * as THREE from 'https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js'\n\n` +
-        current +
-        `\nconsole.log('THREE revision:', THREE.REVISION)`
-      await outputFormatted(mainPath, seed, 'babel')
-    }
+    const threeTemplate = await fse.readFile(threeTemplatePath, 'utf8')
+    await outputFormatted(mainPath, threeTemplate, 'babel')
   } else if (!includeShaders) {
     // No shaders and no three: ensure empty module entry
     await writeIfMissingFormatted(mainPath, '', 'babel')
@@ -377,9 +373,8 @@ async function startExistingProject(targetName) {
     return
   }
 
-  // Sort by creation date (oldest first), then reverse to show latest first
-  withStats.sort((a, b) => a.birthtimeMs - b.birthtimeMs)
-  withStats.reverse()
+  // show latest first
+  withStats.sort((a, b) => a.birthtimeMs - b.birthtimeMs).reverse()
   const { project } = await prompts({
     type: 'select',
     name: 'project',
