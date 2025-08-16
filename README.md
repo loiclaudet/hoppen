@@ -24,19 +24,21 @@ npx hoppen start [project-name]
 
 ## Why Hoppen?
 
-Codepen is great for prototyping, but iterating on a project with AI is a pain.
+Iterating on a Pen with AI is painful.
+It requires copy-pasting the code into an LLM chat, and go back and forth between the chat and the editor.
 
 Hoppen allows you to iterate on a project while benefiting from the power of your favorite IDE and AI tools.
 
-Export your project to CodePen whenever you want.
+Export a project to CodePen whenever is needed, as many times as you want.
 
 That's useful for educational purposes, for example to show a project at different stages of development. That's an handy way to version your project.
 
 ## Features
 
-- Scaffold a project with your favorite libraries and frameworks (GSAP, THREE.js, r3f, shaders, Lenis)
+- Scaffold a project with your favorite libraries and frameworks (GSAP, THREE.js, r3f, shaders, Lenis, etc.)
 - One-click export to CodePen
 - Hot module replacement (HMR)
+- Shaders are editable from the `.glsl` files, thus you benefit from the IDE features (auto-completion, syntax highlighting, etc.)
 
 ### Internal files
 
@@ -48,8 +50,4 @@ Hoppen creates a internal folder `@@internal` that contains the CodePen Prefill 
 
 ### Contributing
 
-if your favorite library is not supported, please open an issue or a pull request.
-
-### License
-
-MIT
+if your favorite library is not supported, open an issue or a pull request.
