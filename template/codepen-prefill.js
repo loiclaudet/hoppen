@@ -89,12 +89,21 @@ async function collectJs() {
       .catch(() => '')
     if (plain) parts.push(`/* shaders.js */\n${plain}`)
   }
-  const custom = await fetchText('main.js')
+  const custom = await (async () => {
+    // Prefer raw source via Vite's ?raw loader to get JSX text
+    const jsxRaw = await fetchText('main.jsx?raw')
+    if (jsxRaw) return jsxRaw
+    // Then the JSX entry
+    const jsx = await fetchText('main.jsx')
+    if (jsx) return jsx
+    // Finally, plain JS entry
+    return await fetchText('main.js')
+  })()
     .then(t =>
       t.replace(/^[ \t]*\/\/\#.*$/gm, '').replace(/\/\*[\s\S]*?sourceMappingURL[\s\S]*?\*\//gm, '')
     )
     .catch(() => '')
-  if (custom) parts.push(`/* main.js */\n${custom}`)
+  if (custom) parts.push(`/* main */\n${custom}`)
   return parts.join('\n\n')
 }
 
@@ -118,6 +127,7 @@ async function onClick() {
         rm('script[type="module"][src="@@internal/codepen-prefill.js"]')
         rm('script[type="module"][src="@@internal/shaders-hmr.js"]')
         rm('script[type="module"][src="main.js"]')
+        rm('script[type="module"][src="main.jsx"]')
         // Build shader tags from GLSL files
         const [v, f] = await Promise.all([fetchText('vertex.glsl'), fetchText('fragment.glsl')])
         const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`
@@ -132,6 +142,7 @@ async function onClick() {
         rm('script[type="module"][src="@@internal/codepen-prefill.js"]')
         rm('script[type="module"][src="@@internal/shaders-hmr.js"]')
         rm('script[type="module"][src="main.js"]')
+        rm('script[type="module"][src="main.jsx"]')
         // Build shader tags from GLSL files
         const [v, f] = await Promise.all([fetchText('vertex.glsl'), fetchText('fragment.glsl')])
         const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`
@@ -147,6 +158,8 @@ async function onClick() {
     // Prefer plain runtime when shaders are present to avoid Vite imports in CodePen
     js: js || (await fetchText('shaders.js').then(t => (t ? `/* shaders.js */\n${t}` : ''))),
     editors: '111',
+    js_pre_processor: 'babel',
+    js_module: true,
   })
   form.submit()
 }

@@ -120,11 +120,11 @@ async function createProject() {
       message: 'Select features to include',
       hint: 'Space to select. Enter to confirm',
       choices: [
-        { title: 'GSAP', value: 'gsap' },
-        { title: 'Shaders skeleton', value: 'shaders' },
-        { title: 'THREE.js', value: 'three' },
-        { title: 'Lenis', value: 'lenis' },
+        { title: 'gsap', value: 'gsap' },
+        { title: 'three.js', value: 'three' },
         { title: 'r3f', value: 'r3f' },
+        { title: 'shaders', value: 'shaders' },
+        { title: 'lenis', value: 'lenis' },
       ],
     },
     {
@@ -228,7 +228,7 @@ async function createProject() {
     }
   }
 
-  if (!includeThree && !includeShaders) {
+  if (!includeThree && !includeShaders && !includeR3F) {
     // add project title heading to prevent blank page
     $('body').append(`\n    <h1>${response.projectName}</h1>`)
   }
@@ -249,16 +249,7 @@ async function createProject() {
     )
   }
   if (includeR3F) {
-    // React + ReactDOM UMD globals
-    libs.push(
-      `<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>`
-    )
-    libs.push(
-      `<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>`
-    )
-    // three UMD global (THREE)
-    libs.push(`<script src="https://unpkg.com/three@latest/build/three.min.js"></script>`)
-    // Optionally include drei helpers (UMD not guaranteed). Skipping to avoid runtime issues.
+    // No external UMD libs needed; the r3f template uses ESM imports
   }
 
   // Insert libraries before app scripts
@@ -268,11 +259,12 @@ async function createProject() {
   }
 
   // App script entries
+  const mainEntryFilename = includeR3F ? 'main.jsx' : 'main.js'
   if (includeShaders) {
     $('body').append('\n    <script type="module" src="@@internal/shaders-hmr.js"></script>')
-    $('body').append('\n    <script type="module" src="main.js"></script>')
+    $('body').append(`\n    <script type="module" src="${mainEntryFilename}"></script>`)
   } else {
-    $('body').append('\n    <script type="module" src="main.js"></script>')
+    $('body').append(`\n    <script type="module" src="${mainEntryFilename}"></script>`)
   }
 
   // Include CodePen Prefill helper inside internal folder.
@@ -286,9 +278,17 @@ async function createProject() {
     $('body').append('\n    <script type="module" src="@@internal/codepen-prefill.js"></script>')
   }
 
-  // Ensure main.js exists and includes THREE import when selected
-  const mainPath = path.join(projectDir, 'main.js')
-  if (includeThree) {
+  // Ensure main entry exists and includes correct template when selected
+  const mainFilename = includeR3F ? 'main.jsx' : 'main.js'
+  const mainPath = path.join(projectDir, mainFilename)
+  if (includeR3F) {
+    const r3fTemplatePath = path.join(__dirname, 'template', 'r3f.jsx')
+    if (!(await fse.pathExists(r3fTemplatePath))) {
+      throw new Error(`Missing template r3f.jsx at ${r3fTemplatePath}`)
+    }
+    const r3fTemplate = await fse.readFile(r3fTemplatePath, 'utf8')
+    await outputFormatted(mainPath, r3fTemplate, 'babel')
+  } else if (includeThree) {
     const threeTemplatePath = path.join(__dirname, 'template', 'threejs.js')
     if (!(await fse.pathExists(threeTemplatePath))) {
       throw new Error(`Missing template threejs.js at ${threeTemplatePath}`)
