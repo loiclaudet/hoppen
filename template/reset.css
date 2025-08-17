@@ -50,8 +50,7 @@ h3,
 h4,
 h5,
 h6 {
-  /* we don't want to break words for various creative effects */
-  /* overflow-wrap: break-word; */
+  overflow-wrap: break-word;
 }
 
 /* 9. Improve line wrapping */
