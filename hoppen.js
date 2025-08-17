@@ -6,57 +6,26 @@ import prompts from 'prompts'
 import { createServer } from 'vite'
 import { load as cheerioLoad } from 'cheerio'
 import prettier from 'prettier'
+import { WORKSPACE_DIR, CDNS, GSAP_PLUGINS, PRETTIER_OPTS } from './constants.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const WORKSPACE_DIR = process.cwd()
+main().catch(err => {
+  console.error(err)
+  process.exit(1)
+})
 
-const GSAP_CDN = 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/gsap.min.js'
-const GSAP_PLUGINS = [
-  {
-    name: 'ScrollTrigger',
-    id: 'ScrollTrigger',
-    src: 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/ScrollTrigger.min.js',
-  },
-  {
-    name: 'ScrollSmoother',
-    id: 'ScrollSmoother',
-    src: 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/ScrollSmoother.min.js',
-  },
-  {
-    name: 'Draggable',
-    id: 'Draggable',
-    src: 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/Draggable.min.js',
-  },
-  {
-    name: 'SplitText',
-    id: 'SplitText',
-    src: 'https://cdn.jsdelivr.net/npm/gsap@latest/dist/SplitText.min.js',
-  },
-]
-
-async function ensureBaseDirs() {
-  await fse.ensureDir(WORKSPACE_DIR)
-}
-
-function toKebabCase(str) {
-  return str
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '')
-}
-
-const PRETTIER_OPTS = {
-  semi: true,
-  singleQuote: true,
-  trailingComma: 'es5',
-  tabWidth: 2,
-  printWidth: 100,
-  bracketSpacing: true,
-  arrowParens: 'always',
-  htmlWhitespaceSensitivity: 'css',
-  endOfLine: 'lf',
+async function main() {
+  const [, , cmd] = process.argv
+  if (!cmd || cmd === 'create') {
+    await createProject()
+  } else if (cmd === 'start') {
+    const targetName = process.argv[3]
+    await startExistingProject(targetName)
+  } else {
+    console.log('Usage: hoppen [create] | hoppen start [projectName]')
+  }
 }
 
 async function formatContent(source, parser) {
@@ -87,9 +56,7 @@ async function writeIfMissingFormatted(filePath, source, parser) {
   }
 }
 
-// removed ensureGlslTidiness per user request
-
-function buildBaseHtml({ title = 'Hoppen', useStyleHref }) {
+function buildBaseHtml(title) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -97,11 +64,148 @@ function buildBaseHtml({ title = 'Hoppen', useStyleHref }) {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${title}</title>
     <link rel="stylesheet" href="@@internal/reset.css" />
-    ${useStyleHref ? `<link rel=\"stylesheet\" href=\"${useStyleHref}\" />` : ''}
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
   </body>
 </html>`
+}
+
+function getFeatureFlags(selected) {
+  const features = new Set(selected || [])
+  return {
+    includeGSAP: features.has('gsap'),
+    includeShaders: features.has('shaders'),
+    includeThree: features.has('three'),
+    includeLenis: features.has('lenis'),
+    includeR3F: features.has('r3f'),
+  }
+}
+
+async function setupShaders(projectDir, $) {
+  const shadersHtmlPath = path.join(__dirname, 'template', 'shaders.html')
+  if (!(await fse.pathExists(shadersHtmlPath))) {
+    throw new Error(`Missing template shaders.html at ${shadersHtmlPath}`)
+  }
+  const shadersHtml = await fse.readFile(shadersHtmlPath, 'utf8')
+  const $$ = cheerioLoad(shadersHtml)
+  const canvas = $$('canvas#shader-canvas').first()
+  if (canvas.length) {
+    $('body').append(`\n    ${cheerioLoad('<body></body>')('body').append(canvas.clone()).html()}`)
+  } else {
+    $('body').append('\n    <canvas id="shader-canvas"></canvas>')
+  }
+
+  const templateDir = path.join(__dirname, 'template')
+  if (await fse.pathExists(path.join(templateDir, 'shaders.css'))) {
+    const css = await fse.readFile(path.join(templateDir, 'shaders.css'), 'utf8')
+    await outputFormatted(path.join(projectDir, 'style.css'), css, 'css')
+  } else {
+    await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
+  }
+
+  const vSrc = $$('script[type="x-shader/x-vertex"]#vertex-shader').text().trim()
+  const fSrc = $$('script[type="x-shader/x-fragment"]#fragment-shader').text().trim()
+  const vOut = await formatContent(vSrc, 'glsl')
+  const fOut = await formatContent(fSrc, 'glsl')
+  await fse.outputFile(path.join(projectDir, 'vertex.glsl'), vOut)
+  await fse.outputFile(path.join(projectDir, 'fragment.glsl'), fOut)
+
+  const internalDir = path.join(projectDir, '@@internal')
+  await fse.ensureDir(internalDir)
+  const shadersHmrSrc = path.join(templateDir, 'shaders-hmr.js')
+  if (await fse.pathExists(shadersHmrSrc)) {
+    await fse.copy(shadersHmrSrc, path.join(internalDir, 'shaders-hmr.js'))
+  }
+  const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
+  if (await fse.pathExists(resetCssSrc)) {
+    await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
+  }
+  const shadersPlainSrc = path.join(templateDir, 'shaders.js')
+  if (await fse.pathExists(shadersPlainSrc)) {
+    await fse.copy(shadersPlainSrc, path.join(internalDir, 'shaders.js'))
+  }
+
+  await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
+}
+
+async function ensureStyleAndReset(projectDir) {
+  await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
+  const internalDir = path.join(projectDir, '@@internal')
+  await fse.ensureDir(internalDir)
+  const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
+  if (await fse.pathExists(resetCssSrc)) {
+    await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
+  }
+}
+
+function buildLibrariesHtml({ includeGSAP, gsapPlugins, includeLenis, includeR3F }) {
+  const libs = []
+  if (includeGSAP) libs.push(`<script src="${CDNS.GSAP}"></script>`)
+  if (includeGSAP && Array.isArray(gsapPlugins)) {
+    gsapPlugins.forEach(id => {
+      const plugin = GSAP_PLUGINS.find(p => p.id === id)
+      if (plugin) libs.push(`<script src="${plugin.src}"></script>`)
+    })
+  }
+  if (includeLenis) {
+    libs.push(`<script src="${CDNS.LENIS}"></script>`)
+  }
+  if (includeR3F) {
+    // No UMD libs needed; r3f template uses ESM imports
+  }
+  return libs.length ? `\n    ${libs.join('\n    ')}` : ''
+}
+
+function getMainEntryFilename(includeR3F) {
+  return includeR3F ? 'main.jsx' : 'main.js'
+}
+
+function appendAppEntries($, mainEntryFilename, includeShaders) {
+  if (includeShaders) {
+    $('body').append('\n    <script type="module" src="@@internal/shaders-hmr.js"></script>')
+  }
+  $('body').append(`\n    <script type="module" src="${mainEntryFilename}"></script>`)
+}
+
+async function ensureCodepenPrefill(projectDir, $) {
+  const internalDir = path.join(projectDir, '@@internal')
+  await fse.ensureDir(internalDir)
+  const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
+  if (await fse.pathExists(prefillSrc)) {
+    await fse.copy(prefillSrc, path.join(internalDir, 'codepen-prefill.js'))
+  }
+  $('body').append('\n    <script type="module" src="@@internal/codepen-prefill.js"></script>')
+}
+
+async function writeMainEntryFromTemplates(
+  projectDir,
+  { includeR3F, includeThree, includeShaders }
+) {
+  const mainFilename = getMainEntryFilename(includeR3F)
+  const mainPath = path.join(projectDir, mainFilename)
+  if (includeR3F) {
+    const r3fTemplatePath = path.join(__dirname, 'template', 'r3f.jsx')
+    if (!(await fse.pathExists(r3fTemplatePath))) {
+      throw new Error(`Missing template r3f.jsx at ${r3fTemplatePath}`)
+    }
+    const r3fTemplate = await fse.readFile(r3fTemplatePath, 'utf8')
+    await outputFormatted(mainPath, r3fTemplate, 'babel')
+    return mainFilename
+  }
+  if (includeThree) {
+    const threeTemplatePath = path.join(__dirname, 'template', 'threejs.js')
+    if (!(await fse.pathExists(threeTemplatePath))) {
+      throw new Error(`Missing template threejs.js at ${threeTemplatePath}`)
+    }
+    const threeTemplate = await fse.readFile(threeTemplatePath, 'utf8')
+    await outputFormatted(mainPath, threeTemplate, 'babel')
+    return mainFilename
+  }
+  if (!includeShaders) {
+    await writeIfMissingFormatted(mainPath, '', 'babel')
+  }
+  return mainFilename
 }
 
 async function createProject() {
@@ -128,7 +232,7 @@ async function createProject() {
       ],
     },
     {
-      type: (prev, values) => (values.features?.includes('gsap') ? 'multiselect' : null),
+      type: (_, values) => (values.features?.includes('gsap') ? 'multiselect' : null),
       name: 'gsapPlugins',
       message: 'Select optional GSAP plugins',
       hint: 'Space to select. Enter to confirm',
@@ -149,83 +253,17 @@ async function createProject() {
     await fse.remove(projectDir)
   }
 
-  const features = new Set(response.features || [])
-  const includeGSAP = features.has('gsap')
-  const includeShaders = features.has('shaders')
-  const includeThree = features.has('three')
-  const includeLenis = features.has('lenis')
-  const includeR3F = features.has('r3f')
+  const { includeGSAP, includeShaders, includeThree, includeLenis, includeR3F } = getFeatureFlags(
+    response.features
+  )
 
-  // Prepare HTML scaffold
-  const useStyleHref = 'style.css'
-  let html = buildBaseHtml({ title: 'Hoppen', useStyleHref })
+  let html = buildBaseHtml('Hoppen')
   let $ = cheerioLoad(html)
 
-  // Body content from shaders skeleton if selected
   if (includeShaders) {
-    const shadersHtmlPath = path.join(__dirname, 'template', 'shaders.html')
-    if (await fse.pathExists(shadersHtmlPath)) {
-      const shadersHtml = await fse.readFile(shadersHtmlPath, 'utf8')
-      const $$ = cheerioLoad(shadersHtml)
-      // Extract only the canvas; do not inline shaders in HTML
-      const canvas = $$('canvas#shader-canvas').first()
-      if (canvas.length) {
-        $('body').append(
-          `\n    ${cheerioLoad('<body></body>')('body').append(canvas.clone()).html()}`
-        )
-      } else {
-        $('body').append('\n    <canvas id="shader-canvas"></canvas>')
-      }
-      // copy shaders assets from template folder
-      const templateDir = path.join(__dirname, 'template')
-      if (await fse.pathExists(path.join(templateDir, 'shaders.css'))) {
-        const css = await fse.readFile(path.join(templateDir, 'shaders.css'), 'utf8')
-        await outputFormatted(path.join(projectDir, 'style.css'), css, 'css')
-      } else {
-        await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
-      }
-      // Create GLSL files from template inline scripts for IDE features (and HMR via Vite ?raw)
-      const vSrc = $$('script[type="x-shader/x-vertex"]#vertex-shader').text().trim()
-      const fSrc = $$('script[type="x-shader/x-fragment"]#fragment-shader').text().trim()
-      const vOut = await formatContent(vSrc || 'precision mediump float;\n', 'glsl')
-      const fOut = await formatContent(fSrc || 'precision mediump float;\n', 'glsl')
-      await fse.outputFile(path.join(projectDir, 'vertex.glsl'), vOut)
-      await fse.outputFile(path.join(projectDir, 'fragment.glsl'), fOut)
-      // No JS wrappers; Vite will serve ?raw for HMR via imports inside the shared runner
-
-      // Do not inline shader script tags in HTML; keep GLSL only in files
-
-      // Copy HMR runner and reset.css into hidden internal folder for correct import resolution
-      const internalDir = path.join(projectDir, '@@internal')
-      await fse.ensureDir(internalDir)
-      const shadersHmrSrc = path.join(templateDir, 'shaders-hmr.js')
-      if (await fse.pathExists(shadersHmrSrc)) {
-        await fse.copy(shadersHmrSrc, path.join(internalDir, 'shaders-hmr.js'))
-      }
-      const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
-      if (await fse.pathExists(resetCssSrc)) {
-        await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
-      }
-      // Also include plain runtime for CodePen export
-      const shadersPlainSrc = path.join(templateDir, 'shaders.js')
-      if (await fse.pathExists(shadersPlainSrc)) {
-        await fse.copy(shadersPlainSrc, path.join(internalDir, 'shaders.js'))
-      }
-      // Ensure an empty main.js for user custom code (exported to CodePen)
-      await outputFormatted(path.join(projectDir, 'main.js'), '', 'babel')
-    } else {
-      throw new Error(`Missing template shaders.html at ${shadersHtmlPath}`)
-    }
+    await setupShaders(projectDir, $)
   } else {
-    // non-shaders: ensure style file exists; defer main.js creation to later logic
-    await writeIfMissingFormatted(path.join(projectDir, 'style.css'), '', 'css')
-    // Ensure internal folder reset.css is available for consistent export
-    const internalDir = path.join(projectDir, '@@internal')
-    await fse.ensureDir(internalDir)
-    const resetCssSrc = path.join(__dirname, 'template', 'reset.css')
-    if (await fse.pathExists(resetCssSrc)) {
-      await fse.copy(resetCssSrc, path.join(internalDir, 'reset.css'))
-    }
+    await ensureStyleAndReset(projectDir)
   }
 
   if (!includeThree && !includeShaders && !includeR3F) {
@@ -233,78 +271,25 @@ async function createProject() {
     $('body').append(`\n    <h1>${response.projectName}</h1>`)
   }
 
-  // Libraries
-  const libs = []
-  if (includeGSAP) libs.push(`<script src="${GSAP_CDN}"></script>`)
-  if (includeGSAP && Array.isArray(response.gsapPlugins)) {
-    response.gsapPlugins.forEach(id => {
-      const plugin = GSAP_PLUGINS.find(p => p.id === id)
-      if (plugin) libs.push(`<script src="${plugin.src}"></script>`)
-    })
-  }
-  // THREE is handled via ESM imports in main.js
-  if (includeLenis) {
-    libs.push(
-      `<script src="https://cdn.jsdelivr.net/npm/@studio-freight/lenis@latest/dist/lenis.min.js"></script>`
-    )
-  }
-  if (includeR3F) {
-    // No external UMD libs needed; the r3f template uses ESM imports
-  }
+  const libsHtml = buildLibrariesHtml({
+    includeGSAP,
+    gsapPlugins: response.gsapPlugins,
+    includeLenis,
+    includeR3F,
+  })
+  if (libsHtml) $('body').append(libsHtml)
 
-  // Insert libraries before app scripts
-  const libsHtml = `\n    ${libs.join('\n    ')}`
-  if (libs.length) {
-    $('body').append(libsHtml)
-  }
+  const mainEntryFilename = getMainEntryFilename(includeR3F)
+  appendAppEntries($, mainEntryFilename, includeShaders)
 
-  // App script entries
-  const mainEntryFilename = includeR3F ? 'main.jsx' : 'main.js'
-  if (includeShaders) {
-    $('body').append('\n    <script type="module" src="@@internal/shaders-hmr.js"></script>')
-    $('body').append(`\n    <script type="module" src="${mainEntryFilename}"></script>`)
-  } else {
-    $('body').append(`\n    <script type="module" src="${mainEntryFilename}"></script>`)
-  }
+  await ensureCodepenPrefill(projectDir, $)
 
-  // Include CodePen Prefill helper inside internal folder.
-  {
-    const internalDir = path.join(projectDir, '@@internal')
-    await fse.ensureDir(internalDir)
-    const prefillSrc = path.join(__dirname, 'template', 'codepen-prefill.js')
-    if (await fse.pathExists(prefillSrc)) {
-      await fse.copy(prefillSrc, path.join(internalDir, 'codepen-prefill.js'))
-    }
-    $('body').append('\n    <script type="module" src="@@internal/codepen-prefill.js"></script>')
-  }
+  await writeMainEntryFromTemplates(projectDir, { includeR3F, includeThree, includeShaders })
 
-  // Ensure main entry exists and includes correct template when selected
-  const mainFilename = includeR3F ? 'main.jsx' : 'main.js'
-  const mainPath = path.join(projectDir, mainFilename)
-  if (includeR3F) {
-    const r3fTemplatePath = path.join(__dirname, 'template', 'r3f.jsx')
-    if (!(await fse.pathExists(r3fTemplatePath))) {
-      throw new Error(`Missing template r3f.jsx at ${r3fTemplatePath}`)
-    }
-    const r3fTemplate = await fse.readFile(r3fTemplatePath, 'utf8')
-    await outputFormatted(mainPath, r3fTemplate, 'babel')
-  } else if (includeThree) {
-    const threeTemplatePath = path.join(__dirname, 'template', 'threejs.js')
-    if (!(await fse.pathExists(threeTemplatePath))) {
-      throw new Error(`Missing template threejs.js at ${threeTemplatePath}`)
-    }
-    const threeTemplate = await fse.readFile(threeTemplatePath, 'utf8')
-    await outputFormatted(mainPath, threeTemplate, 'babel')
-  } else if (!includeShaders) {
-    // No shaders and no three: ensure empty module entry
-    await writeIfMissingFormatted(mainPath, '', 'babel')
-  }
-  // Set project title and write formatted HTML
   $('title').text(response.projectName)
   const htmlOut = $.html()
   await outputFormatted(path.join(projectDir, 'index.html'), htmlOut, 'html')
 
-  // Start dev server with Vite serving the projectDir
   await startServer(projectDir)
 }
 
@@ -321,8 +306,6 @@ async function startServer(projectDir) {
   const info = server.resolvedUrls
   console.log('\u001b[32mDev server running:\u001b[0m', info.local[0])
 }
-
-// Removed copyCommand in favor of CodePen Prefill workflow (added progressively)
 
 async function startExistingProject(targetName) {
   await ensureBaseDirs()
@@ -386,20 +369,13 @@ async function startExistingProject(targetName) {
   await startServer(chosen.dir)
 }
 
-async function main() {
-  const [, , cmd] = process.argv
-  if (!cmd || cmd === 'create') {
-    // Default to create when no subcommand is provided
-    await createProject()
-  } else if (cmd === 'start') {
-    const targetName = process.argv[3]
-    await startExistingProject(targetName)
-  } else {
-    console.log('Usage: hoppen [create] | hoppen start [projectName]')
-  }
+async function ensureBaseDirs() {
+  await fse.ensureDir(WORKSPACE_DIR)
 }
 
-main().catch(err => {
-  console.error(err)
-  process.exit(1)
-})
+function toKebabCase(str) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
