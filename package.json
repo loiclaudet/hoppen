@@ -1,12 +1,31 @@
 {
   "name": "hoppen",
   "version": "0.1.0",
-  "description": "Start your creative project with your favorite libraries, in seconds. Export instantly to CodePen.",
+  "description": "Start creative projects with your favorite libraries in seconds. Share instantly to CodePen.",
   "type": "module",
   "bin": {
     "hoppen": "hoppen.js"
   },
-  "scripts": {},
+  "files": [
+    "hoppen.js",
+    "constants.js",
+    "template/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "cli",
+    "codepen",
+    "vite",
+    "threejs",
+    "r3f",
+    "gsap",
+    "shaders"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "cheerio": "^1.0.0",
     "fs-extra": "^11.2.0",
