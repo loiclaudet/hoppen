@@ -133,21 +133,8 @@ async function onClick() {
         const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`
         if (doc.body) doc.body.insertAdjacentHTML('beforeend', shaderTags)
         return doc.body && doc.body.innerHTML ? doc.body.innerHTML.trim() : ''
-      } catch (_) {
-        // Fallback to current DOM (may include extension nodes)
-        const clone = document.body.cloneNode(true)
-        const rm = sel => clone.querySelectorAll(sel).forEach(el => el.remove())
-        rm('#codepen-prefill-form')
-        rm('script[type="module"][src="/template/codepen-prefill.js"]')
-        rm('script[type="module"][src="@@internal/codepen-prefill.js"]')
-        rm('script[type="module"][src="@@internal/shaders-hmr.js"]')
-        rm('script[type="module"][src="main.js"]')
-        rm('script[type="module"][src="main.jsx"]')
-        // Build shader tags from GLSL files
-        const [v, f] = await Promise.all([fetchText('vertex.glsl'), fetchText('fragment.glsl')])
-        const shaderTags = `${v ? `\n    <script type=\"x-shader/x-vertex\" id=\"vertex-shader\">\n${v}\n    </script>` : ''}${f ? `\n    <script type=\"x-shader/x-fragment\" id=\"fragment-shader\">\n${f}\n    </script>` : ''}`
-        clone.insertAdjacentHTML('beforeend', shaderTags)
-        return clone.innerHTML.trim()
+      } catch (e) {
+        console.error(e)
       }
     })(),
   ])
