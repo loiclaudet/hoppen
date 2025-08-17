@@ -13,6 +13,17 @@ let rafId
 let program
 let timeLocation
 let resolutionLocation
+let mouseLocation
+
+let disposePromise = init()
+
+if (import.meta.hot) {
+  import.meta.hot.accept(async () => {
+    const dispose = await disposePromise
+    dispose && dispose()
+    disposePromise = init()
+  })
+}
 
 function createShader(gl, source, type) {
   const shader = gl.createShader(type)
@@ -60,6 +71,7 @@ async function init() {
   gl.useProgram(program)
   timeLocation = gl.getUniformLocation(program, 'u_time')
   resolutionLocation = gl.getUniformLocation(program, 'u_resolution')
+  mouseLocation = gl.getUniformLocation(program, 'u_mouse')
   const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])
   const buf = gl.createBuffer()
   gl.bindBuffer(gl.ARRAY_BUFFER, buf)
@@ -67,32 +79,38 @@ async function init() {
   const loc = gl.getAttribLocation(program, 'a_position')
   gl.enableVertexAttribArray(loc)
   gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
-  function resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-    canvas.width = Math.floor(window.innerWidth * dpr)
-    canvas.height = Math.floor(window.innerHeight * dpr)
-    gl.viewport(0, 0, canvas.width, canvas.height)
-    gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
-  }
-  window.addEventListener('resize', resize)
+
+  let mouseX = 0
+  let mouseY = 0
+  const devicePixelRatio = Math.min(window.devicePixelRatio, 2)
+  const wH = window.innerHeight
+
   resize()
-  function render() {
-    const t = performance.now() * 0.001
-    gl.uniform1f(timeLocation, t)
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    rafId = requestAnimationFrame(render)
-  }
   render()
+
+  window.addEventListener('resize', resize)
+
+  window.addEventListener('mousemove', event => {
+    mouseX = event.clientX * devicePixelRatio
+    mouseY = (wH - event.clientY) * devicePixelRatio // flip Y coordinate for WebGL
+  })
+
   return () => {
     if (rafId) cancelAnimationFrame(rafId)
   }
-}
 
-let disposePromise = init()
-if (import.meta.hot) {
-  import.meta.hot.accept(async () => {
-    const dispose = await disposePromise
-    dispose && dispose()
-    disposePromise = init()
-  })
+  function render() {
+    const t = performance.now() * 0.001
+    gl.uniform1f(timeLocation, t)
+    gl.uniform2f(mouseLocation, mouseX, mouseY)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    rafId = requestAnimationFrame(render)
+  }
+
+  function resize() {
+    canvas.width = Math.floor(window.innerWidth * devicePixelRatio)
+    canvas.height = Math.floor(window.innerHeight * devicePixelRatio)
+    gl.viewport(0, 0, canvas.width, canvas.height)
+    gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
+  }
 }

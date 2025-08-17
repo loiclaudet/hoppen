@@ -12,19 +12,6 @@
   const vertexShaderSource = document.getElementById('vertex-shader')?.innerHTML || ''
   const fragmentShaderSource = document.getElementById('fragment-shader')?.innerHTML || ''
 
-  function createShader(gl, source, type) {
-    const shader = gl.createShader(type)
-    gl.shaderSource(shader, source)
-    gl.compileShader(shader)
-
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      console.error('Shader compilation error:', gl.getShaderInfoLog(shader))
-      gl.deleteShader(shader)
-      return null
-    }
-    return shader
-  }
-
   const vertexShader = createShader(gl, vertexShaderSource, gl.VERTEX_SHADER)
   const fragmentShader = createShader(gl, fragmentShaderSource, gl.FRAGMENT_SHADER)
 
@@ -42,6 +29,7 @@
 
   const timeLocation = gl.getUniformLocation(program, 'u_time')
   const resolutionLocation = gl.getUniformLocation(program, 'u_resolution')
+  const mouseLocation = gl.getUniformLocation(program, 'u_mouse')
 
   const vertices = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1])
   const vertexBuffer = gl.createBuffer()
@@ -52,6 +40,34 @@
   gl.enableVertexAttribArray(positionLocation)
   gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0)
 
+  let mouseX = 0
+  let mouseY = 0
+  const devicePixelRatio = Math.min(window.devicePixelRatio, 2)
+  const wH = window.innerHeight
+
+  window.addEventListener('mousemove', event => {
+    mouseX = event.clientX * devicePixelRatio
+    mouseY = (wH - event.clientY) * devicePixelRatio // flip Y coordinate for WebGL
+  })
+
+  window.addEventListener('resize', resizeCanvas)
+  resizeCanvas()
+
+  render()
+
+  function createShader(gl, source, type) {
+    const shader = gl.createShader(type)
+    gl.shaderSource(shader, source)
+    gl.compileShader(shader)
+
+    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+      console.error('Shader compilation error:', gl.getShaderInfoLog(shader))
+      gl.deleteShader(shader)
+      return null
+    }
+    return shader
+  }
+
   function resizeCanvas() {
     const devicePixelRatio = Math.min(window.devicePixelRatio, 2)
     canvas.width = window.innerWidth * devicePixelRatio
@@ -61,16 +77,12 @@
     gl.uniform2f(resolutionLocation, canvas.width, canvas.height)
   }
 
-  window.addEventListener('resize', resizeCanvas)
-  resizeCanvas()
-
   function render() {
     const time = performance.now() * 0.001
     gl.uniform1f(timeLocation, time)
+    gl.uniform2f(mouseLocation, mouseX, mouseY)
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     requestAnimationFrame(render)
   }
-
-  render()
 })()

@@ -17,8 +17,8 @@
       attribute vec2 a_position;
 
       void main() {
-          vUv = 0.5 * (a_position + 1.0);
-          gl_Position = vec4(a_position, 0.0, 1.0);
+        vUv = 0.5 * (a_position + 1.0);
+        gl_Position = vec4(a_position, 0.0, 1.0);
       }
     </script>
 
@@ -31,7 +31,8 @@
       uniform vec2 u_mouse;
 
       void main() {
-        gl_FragColor = vec4(vUv.x, vUv.y, 0.0, 1.0);
+        vec2 mouse = u_mouse / u_resolution;
+        gl_FragColor = vec4(vUv.x, vUv.y, 1.0 - ((mouse.x + mouse.y) * 0.5), 1.0);
       }
     </script>
     <script src="shaders.js"></script>
